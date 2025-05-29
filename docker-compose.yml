@@ -1,0 +1,121 @@
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:1.83.2
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=n8n
+      - DB_POSTGRESDB_USER=n8nuser
+      - DB_POSTGRESDB_PASSWORD=n8npassword
+      - N8N_ENCRYPTION_KEY=!N8n1973& # ¡Considera una clave más larga y aleatoria para producción!
+      - GENERIC_TIMEZONE=Europe/London
+      - QDRANT_URL=http://qdrant:6333
+    volumes:
+      - n8n_data:/home/node/.n8n # Para los datos internos de n8n
+      # === LÍNEA AÑADIDA PARA ACCEDER A ARCHIVOS LOCALES ===
+      # Cambia 'D:/AI/MiAgenteIA/archivos_n8n_entrada' por la ruta real en TU ordenador.
+      # Esta carpeta 'D:/AI/MiAgenteIA/archivos_n8n_entrada' en tu PC aparecerá como '/datos_entrada' dentro del contenedor n8n.
+      - D:/AI/Mi_agente_IA/datos_ingerir:/datos_entrada 
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    networks:
+      - ai_agent_network
+
+  postgres:
+    image: postgres:15
+    restart: always
+    environment:
+      - POSTGRES_USER=n8nuser
+      - POSTGRES_PASSWORD=n8npassword
+      - POSTGRES_DB=n8n
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-evo-db.sh:/docker-entrypoint-initdb.d/init-evo-db.sh
+    networks:
+      - ai_agent_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U n8nuser -d n8n -q"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  evolution_api:
+    image: atendai/evolution-api:latest
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      
+      - AUTHENTICATION_TYPE=apikey
+      - AUTHENTICATION_API_KEY=!Evolutionapi73& # ¡Considera una clave más larga y aleatoria para producción!
+
+      # Configuración de la base de datos (PostgreSQL)
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://belis:!Belis1973&@postgres:5432/belispostgres?schema=public
+
+      # Configuración de Redis (usando REDIS_URI y CACHE_REDIS_URI)
+      - REDIS_URI=redis://redis:6379/0
+      - REDIS_PREFIX_KEY=evolution
+      - CACHE_REDIS_ENABLED="true"
+      - CACHE_REDIS_URI=redis://redis:6379/6
+      - CACHE_REDIS_PREFIX_KEY=evolution
+
+      # OTRAS VARIABLES IMPORTANTES PARA EVOLUTION API (revisa su documentación):
+      # - STORE_FOLDER_BASE64_STICKERS=/evolution/store/stickers/base64
+      # - SERVER_URL=https://tu_dominio_publico_para_webhooks.com
+    volumes:
+      - evolution_api_data:/evolution/store
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ai_agent_network
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    restart: always
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    networks:
+      - ai_agent_network
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - redis_data:/data
+    networks:
+      - ai_agent_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  
+
+volumes:
+  n8n_data:
+  postgres_data:
+  evolution_api_data:
+  qdrant_storage:
+  redis_data:
+  # ollama_data: # Si añades Ollama, descomenta y asegúrate de que el servicio Ollama lo use
+
+networks:
+  ai_agent_network:
+    driver: bridge
