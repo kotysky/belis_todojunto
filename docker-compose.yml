@@ -20,7 +20,7 @@ services:
       # === LÍNEA AÑADIDA PARA ACCEDER A ARCHIVOS LOCALES ===
       # Cambia 'D:/AI/MiAgenteIA/archivos_n8n_entrada' por la ruta real en TU ordenador.
       # Esta carpeta 'D:/AI/MiAgenteIA/archivos_n8n_entrada' en tu PC aparecerá como '/datos_entrada' dentro del contenedor n8n.
-      - D:/AI/Mi_agente_IA/datos_ingerir:/datos_entrada 
+      #- D:/AI/Mi_agente_IA/datos_ingerir:/datos_entrada 
     depends_on:
       postgres:
         condition: service_healthy
